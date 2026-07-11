@@ -41,6 +41,4 @@ No installation or server required.
 └── README.md                     # Project documentation
 ```
 
-## Credits
-
-Developed by **Elham Abdullah Al-Huthail**.
+[![Live Demo](https://img.shields.io/badge/Live-Demo-brightgreen.svg)](https://elham6316.github.io/Smart-ETL-Dashboard-System/)

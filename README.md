@@ -1,5 +1,9 @@
 # Smart ETL & Dashboard System
 
+[![Live Dashboard](https://img.shields.io/badge/Live-Dashboard-blue?style=for-the-badge&logo=google-chrome)](https://elham6316.github.io/Smart-ETL-Dashboard-System/)
+[![Presentation](https://img.shields.io/badge/View-Presentation-orange?style=for-the-badge&logo=gamma)](https://gamma.app/docs/Q4-Sales-Performance-Dashboard-crcnu3n6qmuahhb)
+
+
 A multi-agent data pipeline and analytics platform that transforms raw retail sales data into a cleaned dataset and a fully interactive, browser-based business intelligence dashboard — no backend, no build step, no dependencies beyond a web browser.
 
 ## Overview
@@ -40,5 +44,3 @@ No installation or server required.
 ├── chart1.png / chart2.png       # Pre-rendered chart assets
 └── README.md                     # Project documentation
 ```
-
-[![Live Demo](https://img.shields.io/badge/Live-Demo-brightgreen.svg)](https://elham6316.github.io/Smart-ETL-Dashboard-System/)

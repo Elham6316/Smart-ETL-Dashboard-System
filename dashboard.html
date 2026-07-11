@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Q4 Sales Performance Dashboard</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          bg: '#0f172a',
+          card: '#1e293b',
+          slate: '#334155',
+          navy: '#1e3a8a',
+          brightblue: '#3b82f6',
+          skyblue: '#60a5fa',
+          muted: '#94a3b8',
+        },
+        fontFamily: {
+          sans: ['-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Inter', 'sans-serif'],
+        }
+      }
+    }
+  }
+</script>
+<style>
+  body { background-color: #0f172a; }
+  .card { background-color: #1e293b; border: 1px solid #334155; }
+  ::-webkit-scrollbar { width: 8px; }
+  ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+</style>
+</head>
+<body class="text-slate-100 font-sans min-h-screen antialiased">
+
+  <div class="max-w-7xl mx-auto px-6 py-10">
+
+    <!-- Header -->
+    <header class="mb-10 flex items-center justify-between flex-wrap gap-4">
+      <div>
+        <h1 class="text-2xl md:text-3xl font-semibold tracking-tight text-white">Q4 Sales Performance Dashboard</h1>
+        <p class="text-muted text-sm mt-1">Source: Cleaned_Sales.csv &middot; 9,993 transactions &middot; 5,009 orders</p>
+      </div>
+      <div class="text-xs text-muted border border-slate rounded-full px-3 py-1.5">Executive Summary</div>
+    </header>
+
+    <!-- KPI Cards -->
+    <section class="grid grid-cols-1 sm:grid-cols-3 gap-5 mb-10">
+
+      <div class="card rounded-xl p-6">
+        <p class="text-muted text-xs uppercase tracking-wider mb-2">Total Revenue</p>
+        <p class="text-3xl font-semibold text-white">$2.30M</p>
+        <p class="text-xs text-skyblue mt-2">$2,296,919.28</p>
+      </div>
+
+      <div class="card rounded-xl p-6">
+        <p class="text-muted text-xs uppercase tracking-wider mb-2">Average Order Value</p>
+        <p class="text-3xl font-semibold text-white">$458.56</p>
+        <p class="text-xs text-skyblue mt-2">Across 5,009 orders</p>
+      </div>
+
+      <div class="card rounded-xl p-6">
+        <p class="text-muted text-xs uppercase tracking-wider mb-2">Total Orders</p>
+        <p class="text-3xl font-semibold text-white">5,009</p>
+        <p class="text-xs text-skyblue mt-2">9,993 line items</p>
+      </div>
+
+    </section>
+
+    <!-- Charts -->
+    <section class="grid grid-cols-1 lg:grid-cols-5 gap-5 mb-10">
+
+      <div class="card rounded-xl p-6 lg:col-span-3">
+        <h2 class="text-sm font-medium text-white mb-1">Top 5 Products by Revenue</h2>
+        <p class="text-xs text-muted mb-4">Highest-earning SKUs, total sales value</p>
+        <div class="flex items-center justify-center">
+          <img src="chart1.png" alt="Top 5 Products by Revenue" class="w-full h-auto rounded-lg" />
+        </div>
+      </div>
+
+      <div class="card rounded-xl p-6 lg:col-span-2">
+        <h2 class="text-sm font-medium text-white mb-1">Revenue by Category</h2>
+        <p class="text-xs text-muted mb-4">Share of total revenue</p>
+        <div class="flex items-center justify-center">
+          <img src="chart2.png" alt="Revenue by Category" class="w-full h-auto rounded-lg" />
+        </div>
+      </div>
+
+    </section>
+
+    <!-- Executive Insights -->
+    <section class="card rounded-xl p-7">
+      <h2 class="text-sm font-medium text-white mb-4 flex items-center gap-2">
+        <span class="inline-block w-1.5 h-1.5 rounded-full bg-brightblue"></span>
+        Executive Insights
+      </h2>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm text-slate-300 leading-relaxed">
+        <div>
+          <p class="text-skyblue font-medium mb-1">Revenue Concentration</p>
+          <p>The top product, the Canon imageCLASS 2200 Advanced Copier ($61.6K), generates roughly <span class="text-white font-medium">2.2x</span> the revenue of the #2 product, the Fellowes PB500 ($27.5K) &mdash; demand is concentrated around a single hero SKU.</p>
+        </div>
+        <div>
+          <p class="text-skyblue font-medium mb-1">Q4 Trend</p>
+          <p>Sales peaked sharply in November ($118.4K), nearly <span class="text-white font-medium">50% above</span> both October ($77.8K) and December ($83.8K) &mdash; a seasonal spike worth planning inventory and staffing around.</p>
+        </div>
+        <div>
+          <p class="text-skyblue font-medium mb-1">Strategic Advice</p>
+          <p>Revenue is well-diversified across categories (Technology 36%, Furniture 32%, Office Supplies 31%). No category dominates, which lowers concentration risk &mdash; though Technology's lead is worth monitoring as it scales.</p>
+        </div>
+      </div>
+    </section>
+
+    <footer class="text-center text-xs text-muted mt-10">
+      Generated from Cleaned_Sales.csv &middot; Figures verified against source data
+    </footer>
+
+  </div>
+
+</body>
+</html>

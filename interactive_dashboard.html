@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Sales Performance — Admin Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<!-- Plotly.js: primary CDN, with automatic fallback to a second CDN if the first is blocked/unreachable -->
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"
+        onerror="var s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.35.2/plotly.min.js';s.onload=function(){window.__plotlyReady && window.__plotlyReady();};document.head.appendChild(s);"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'], mono: ['JetBrains Mono', 'monospace'] },
+        colors: {
+          ink: '#e7ecf5',
+          muted: '#8b96ab',
+          blue: '#3b82f6',
+          indigo: '#818cf8',
+          orange: '#fb923c',
+          border: '#242c42',
+        }
+      }
+    }
+  }
+</script>
+<style>
+  :root { --ink:#e7ecf5; --muted:#8b96ab; --blue:#3b82f6; --indigo:#818cf8; --orange:#fb923c; --border:#242c42; --surface:#141a2b; --bg:#0b0f1a; }
+  body { background: var(--bg); color: var(--ink); }
+
+  /* ---- Header (dark navy top bar, slightly deeper than page bg) ---- */
+  .app-header { background: linear-gradient(180deg, #0a0e18 0%, #0d1220 100%); border-bottom: 1px solid var(--border); }
+
+  /* ---- Cards: subtle border + shadow, dark surface, no bleed ---- */
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 1px 2px rgba(0,0,0,0.2), 0 4px 16px rgba(0,0,0,0.25); }
+  .card-hover { transition: box-shadow .18s ease, transform .18s ease, border-color .18s ease; }
+  .card-hover:hover { box-shadow: 0 10px 28px rgba(0,0,0,0.4); transform: translateY(-2px); border-color: #2e3654; }
+
+  .card-header { border-bottom: 1px solid var(--border); }
+
+  .kpi-icon { width: 46px; height: 46px; border-radius: 10px; display:flex; align-items:center; justify-content:center; }
+  .kpi-icon.blue { background: rgba(59,130,246,0.14); color: var(--blue); }
+  .kpi-icon.indigo { background: rgba(129,140,248,0.14); color: var(--indigo); }
+  .kpi-icon.orange { background: rgba(251,146,60,0.14); color: var(--orange); }
+  .kpi-icon.navy { background: rgba(148,163,184,0.12); color: #cbd5e1; }
+
+  .delta-pill { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 5px; }
+  .delta-blue { background: rgba(59,130,246,0.16); color: #93c5fd; }
+  .delta-orange { background: rgba(251,146,60,0.16); color: #fdba74; }
+  .delta-indigo { background: rgba(129,140,248,0.16); color: #c7d2fe; }
+
+  /* ---- Nav tabs (pill style) ---- */
+  .tab-row { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; }
+  .tab {
+    padding: 9px 16px; font-size: 13px; font-weight: 600; color: var(--muted);
+    cursor: pointer; white-space: nowrap; border-radius: 8px; transition: all .15s ease;
+  }
+  .tab:hover { background: #1b2338; color: var(--ink); }
+  .tab.active { background: var(--blue); color: #ffffff; }
+
+  select#categoryFilter {
+    border: 1px solid rgba(255,255,255,0.12); border-radius: 8px; background: rgba(255,255,255,0.05); color: #ffffff;
+  }
+  select#categoryFilter option { background: #0d1220; color: #fff; }
+  select#categoryFilter:focus { outline: none; box-shadow: 0 0 0 3px rgba(59,130,246,0.3); }
+
+  input#txSearch {
+    border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--ink);
+  }
+  input#txSearch::placeholder { color: #5b6478; }
+  input#txSearch:focus { outline: none; box-shadow: 0 0 0 3px rgba(59,130,246,0.18); border-color: var(--blue); }
+
+  .rank-badge { width: 22px; height: 22px; border-radius: 6px; display:inline-flex; align-items:center; justify-content:center; font-size: 10.5px; font-weight: 700; }
+  .rank-1 { background: rgba(251,146,60,0.18); color: #fdba74; }
+  .rank-2 { background: rgba(59,130,246,0.18); color: #93c5fd; }
+  .rank-3 { background: rgba(129,140,248,0.18); color: #c7d2fe; }
+
+  .tag-pill { background: rgba(59,130,246,0.16); color: #93c5fd; font-weight: 700; border-radius: 5px; }
+
+  .insight-icon { width: 30px; height: 30px; border-radius: 8px; display:flex; align-items:center; justify-content:center; }
+
+  /* ---- Table: zebra stripes + hover highlight ---- */
+  table thead th { background: #101627; border-bottom: 2px solid var(--border); position: sticky; top: 0; z-index: 1; }
+  tbody tr:nth-child(even) { background: #10162799; }
+  tbody tr:hover { background: rgba(59,130,246,0.1) !important; }
+  tbody tr { border-bottom: 1px solid #1a2136; transition: background .12s ease; }
+
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-thumb { background: #2c3550; border-radius: 4px; }
+
+  .fade-in { animation: fadeIn 0.25s ease; }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  .rise-in { animation: riseIn .45s cubic-bezier(.2,.8,.2,1) both; }
+  @keyframes riseIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+  .chart-fallback { display: flex; align-items: center; justify-content: center; height: 100%; color: #5b6478; font-size: 13px; text-align: center; padding: 1rem; }
+  .legend-dot { width: 9px; height: 9px; border-radius: 2px; display: inline-block; }
+  .font-mono { font-family: 'JetBrains Mono', monospace; }
+  .section-label { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+</style>
+</head>
+<body class="font-sans min-h-screen antialiased">
+
+  <!-- ==== App Header ==== -->
+  <header class="app-header rise-in">
+    <div class="max-w-[1600px] mx-auto px-6 py-5 flex items-center justify-between flex-wrap gap-4">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+        </div>
+        <div>
+          <h1 class="text-xl font-bold text-white leading-tight">Sales Performance Dashboard</h1>
+          <p class="text-slate-500 text-xs mt-0.5">
+            Cleaned_Sales.csv &middot; <span id="headerTxCount">9,993</span> transactions &middot; 5,009 orders
+          </p>
+        </div>
+      </div>
+      <div class="flex items-center gap-3">
+        <label for="categoryFilter" class="text-xs font-medium text-slate-500 uppercase tracking-wider">Category</label>
+        <select id="categoryFilter" class="px-3 py-2 text-sm cursor-pointer">
+          <option value="all">All Categories</option>
+        </select>
+      </div>
+    </div>
+  </header>
+
+  <div class="max-w-[1600px] mx-auto px-6 py-6">
+
+    <!-- Filter tabs -->
+    <div id="chipRow" class="tab-row flex items-center gap-1 flex-wrap p-2 mb-6 rise-in overflow-x-auto" style="animation-delay:.04s"></div>
+
+    <!-- ==== Row 1: 4 KPI Metric Cards ==== -->
+    <section class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5 mb-6">
+      <div class="card card-hover rounded-xl p-5 rise-in" style="animation-delay:.08s">
+        <div class="flex items-start justify-between">
+          <div>
+            <p class="section-label mb-2">Total Revenue</p>
+            <p id="kpiRevenue" class="text-2xl font-bold text-ink">$0</p>
+            <p id="kpiRevenueSub" class="text-xs text-muted mt-2">—</p>
+          </div>
+          <div class="kpi-icon blue">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+          </div>
+        </div>
+      </div>
+
+      <div class="card card-hover rounded-xl p-5 rise-in" style="animation-delay:.13s">
+        <div class="flex items-start justify-between">
+          <div>
+            <p class="section-label mb-2">Average Order Value</p>
+            <p id="kpiAov" class="text-2xl font-bold text-ink">$0</p>
+            <p id="kpiAovSub" class="text-xs text-muted mt-2">—</p>
+          </div>
+          <div class="kpi-icon indigo">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+          </div>
+        </div>
+      </div>
+
+      <div class="card card-hover rounded-xl p-5 rise-in" style="animation-delay:.18s">
+        <div class="flex items-start justify-between">
+          <div>
+            <p class="section-label mb-2">Total Orders</p>
+            <p id="kpiOrders" class="text-2xl font-bold text-ink">0</p>
+            <p id="kpiOrdersSub" class="text-xs text-muted mt-2">—</p>
+          </div>
+          <div class="kpi-icon orange">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+          </div>
+        </div>
+      </div>
+
+      <div class="card card-hover rounded-xl p-5 rise-in" style="animation-delay:.23s">
+        <div class="flex items-start justify-between">
+          <div>
+            <p class="section-label mb-2">Top Category</p>
+            <p id="kpiTopCat" class="text-2xl font-bold text-ink">—</p>
+            <p id="kpiTopCatSub" class="text-xs text-muted mt-2">—</p>
+          </div>
+          <div class="kpi-icon navy">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41 13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><circle cx="7" cy="7" r="1.5"/></svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==== Row 2: Wide chart + side chart ==== -->
+    <section class="grid grid-cols-1 xl:grid-cols-3 gap-5 mb-6">
+      <div class="card card-hover rounded-xl xl:col-span-2 rise-in" style="animation-delay:.28s">
+        <div class="card-header px-5 py-4 flex items-center justify-between">
+          <div>
+            <h2 class="text-sm font-bold text-ink">Product Performance</h2>
+            <p id="barSubtitle" class="text-xs text-muted mt-0.5">Top products by revenue</p>
+          </div>
+          <span class="section-label">Revenue ($)</span>
+        </div>
+        <div class="p-5">
+          <div id="barChart" style="height: 380px;"></div>
+        </div>
+      </div>
+
+      <div class="card card-hover rounded-xl rise-in" style="animation-delay:.34s">
+        <div class="card-header px-5 py-4">
+          <h2 class="text-sm font-bold text-ink">Category Sales</h2>
+          <p class="text-xs text-muted mt-0.5">Share of total revenue</p>
+        </div>
+        <div class="p-5">
+          <div id="donutChart" style="height: 260px;"></div>
+          <div id="donutLegend" class="flex flex-col gap-2 mt-3 text-xs text-muted"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==== Row 3: Strategic Insights (3 mini cards) ==== -->
+    <section class="grid grid-cols-1 md:grid-cols-3 gap-5 mb-6" id="insightsPanel">
+      <!-- populated by JS -->
+    </section>
+
+    <!-- ==== Row 4: Transactions Table ==== -->
+    <section class="card card-hover rounded-xl rise-in" style="animation-delay:.44s">
+      <div class="card-header px-5 py-4 flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h2 class="text-sm font-bold text-ink">Top Sales Transactions</h2>
+          <p class="text-xs text-muted mt-0.5">Ranked by transaction value</p>
+        </div>
+        <div class="relative w-full sm:w-80">
+          <svg class="absolute left-3 top-1/2 -translate-y-1/2" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5b6478" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <input id="txSearch" type="text" placeholder="Search order, product, region, segment..."
+            class="pl-9 pr-3 py-2 text-sm w-full" />
+        </div>
+      </div>
+      <div class="overflow-x-auto max-h-96 overflow-y-auto">
+        <table class="min-w-full text-sm">
+          <thead>
+            <tr class="text-left text-xs uppercase tracking-wider text-muted">
+              <th class="px-5 py-3">#</th>
+              <th class="px-5 py-3">Order ID</th>
+              <th class="px-5 py-3">Date</th>
+              <th class="px-5 py-3">Product</th>
+              <th class="px-5 py-3">Sub-Category</th>
+              <th class="px-5 py-3">Region</th>
+              <th class="px-5 py-3">Segment</th>
+              <th class="px-5 py-3 text-right">Qty</th>
+              <th class="px-5 py-3 text-right">Sales</th>
+            </tr>
+          </thead>
+          <tbody id="txTableBody"></tbody>
+        </table>
+        <p id="txEmpty" class="hidden text-center text-sm text-muted py-8">No matching transactions.</p>
+      </div>
+    </section>
+
+    <footer class="text-center text-xs text-muted mt-8 pb-4">
+      Generated from Cleaned_Sales.csv &middot; Figures verified against source data
+    </footer>
+
+  </div>
+
+<script>
+  // =====================================================================
+  // dashboardData — hardcoded, verified dataset extracted from
+  // Cleaned_Sales.csv (9,993 transactions / 5,009 orders). Every chart,
+  // KPI card, table row, and insight below reads directly from this
+  // single object — nothing else is fetched or computed server-side.
+  // =====================================================================
+  const dashboardData = {
+    kpis: { totalRevenue: 2296919.28, avgOrderValue: 458.56, totalOrders: 5009 },
+
+    q4Trend: [
+      { month: "Oct", value: 77776.91 },
+      { month: "Nov", value: 118447.80 },
+      { month: "Dec", value: 83829.30 }
+    ],
+
+    categorySales: [
+      { name: "Technology", value: 836154.02 },
+      { name: "Furniture", value: 741718.36 },
+      { name: "Office Supplies", value: 719046.90 }
+    ],
+
+    subCategories: [
+      "Accessories", "Appliances", "Art", "Binders", "Bookcases", "Chairs",
+      "Copiers", "Envelopes", "Fasteners", "Furnishings", "Labels", "Machines",
+      "Paper", "Phones", "Storage", "Supplies", "Tables"
+    ],
+
+    quickFilters: ["Copiers", "Binders", "Chairs", "Phones", "Storage", "Machines"],
+
+    productPerformanceOverall: [
+      { name: "Canon imageCLASS 2200 Advanced Copier", value: 61599.83 },
+      { name: "Fellowes PB500 Electric Punch Plastic Comb Binding Machine with Manual Bind", value: 27453.38 },
+      { name: "Cisco TelePresence System EX90 Videoconferencing Unit", value: 22638.48 },
+      { name: "HON 5400 Series Task Chairs for Big and Tall", value: 21870.57 },
+      { name: "GBC DocuBind TL300 Electric Binding System", value: 19823.47 },
+      { name: "GBC Ibimaster 500 Manual ProClick Binding System", value: 19024.50 },
+      { name: "Hewlett Packard LaserJet 3310 Copier", value: 18839.68 },
+      { name: "HP Designjet T520 Inkjet Large Format Printer - 24\" Color", value: 18374.89 }
+    ],
+
+    productBySubCategory: {
+      "Accessories": [
+        { name: "Plantronics CS510 - Over-the-Head monaural Wireless Headset System", value: 10822.36 },
+        { name: "Logitech P710e Mobile Speakerphone", value: 10196.61 },
+        { name: "Plantronics Savi W720 Multi-Device Wireless Headset System", value: 9367.29 },
+        { name: "Logitech diNovo Edge Keyboard", value: 7399.70 },
+        { name: "Logitech Z-906 Speaker sys - home theater - 5.1-CH", value: 5609.83 },
+        { name: "Razer Tiamat Over Ear 7.1 Surround Sound PC Gaming Headset", value: 5119.74 }
+      ],
+      "Appliances": [
+        { name: "Honeywell Enviracaire Portable HEPA Air Cleaner for 17' x 22' Room", value: 11304.44 },
+        { name: "Hoover Upright Vacuum With Dirt Cup", value: 6832.91 },
+        { name: "Sanyo Counter Height Refrigerator with Crisper, 3.6 Cubic Foot, Stainless Steel/Black", value: 5906.52 },
+        { name: "Hoover Shoulder Vac Commercial Portable Vacuum", value: 5009.49 },
+        { name: "Sanyo 2.5 Cubic Foot Mid-Size Office Refrigerators", value: 4476.96 },
+        { name: "Honeywell Enviracaire Portable HEPA Air Cleaner for 16' x 20' Room", value: 3855.18 }
+      ],
+      "Art": [
+        { name: "Hunt PowerHouse Electric Pencil Sharpener, Blue", value: 1617.95 },
+        { name: "Boston Heavy-Duty Trimline Electric Pencil Sharpeners", value: 1166.44 },
+        { name: "Hunt BOSTON Model 1606 High-Volume Electric Pencil Sharpener, Beige", value: 1113.02 },
+        { name: "Boston 1645 Deluxe Heavier-Duty Electric Pencil Sharpener", value: 1073.12 },
+        { name: "Boston School Pro Electric Pencil Sharpener, 1670", value: 873.64 },
+        { name: "Panasonic KP-380BK Classic Electric Pencil Sharpener", value: 705.20 }
+      ],
+      "Binders": [
+        { name: "Fellowes PB500 Electric Punch Plastic Comb Binding Machine with Manual Bind", value: 27453.38 },
+        { name: "GBC DocuBind TL300 Electric Binding System", value: 19823.47 },
+        { name: "GBC Ibimaster 500 Manual ProClick Binding System", value: 19024.50 },
+        { name: "GBC DocuBind P400 Electric Binding System", value: 17965.07 },
+        { name: "Ibico EPK-21 Electric Binding System", value: 15875.92 },
+        { name: "Fellowes PB300 Plastic Comb Binding Machine", value: 8070.20 }
+      ],
+      "Bookcases": [
+        { name: "Riverside Palais Royal Lawyers Bookcase, Royale Cherry Finish", value: 15610.97 },
+        { name: "DMI Eclipse Executive Suite Bookcases", value: 11046.60 },
+        { name: "Atlantic Metals Mobile 3-Shelf Bookcases, Custom Colors", value: 7539.71 },
+        { name: "Atlantic Metals Mobile 5-Shelf Bookcases, Custom Colors", value: 5492.88 },
+        { name: "Atlantic Metals Mobile 4-Shelf Bookcases, Custom Colors", value: 5184.09 },
+        { name: "O'Sullivan 2-Door Barrister Bookcase in Odessa Pine", value: 4886.47 }
+      ],
+      "Chairs": [
+        { name: "HON 5400 Series Task Chairs for Big and Tall", value: 21870.57 },
+        { name: "Global Troy Executive Leather Low-Back Tilter", value: 12975.39 },
+        { name: "SAFCO Arco Folding Chair", value: 11572.78 },
+        { name: "Hon Deluxe Fabric Upholstered Stacking Chairs, Rounded Back", value: 10637.53 },
+        { name: "GuestStacker Chair with Chrome Finish Legs", value: 9070.93 },
+        { name: "Office Star - Professional Matrix Back Chair with 2-to-1 Synchro Tilt and Mesh Fabric Seat", value: 8774.50 }
+      ],
+      "Copiers": [
+        { name: "Canon imageCLASS 2200 Advanced Copier", value: 61599.83 },
+        { name: "Hewlett Packard LaserJet 3310 Copier", value: 18839.68 },
+        { name: "Canon PC1060 Personal Laser Copier", value: 11619.83 },
+        { name: "Canon Imageclass D680 Copier / Fax", value: 8959.87 },
+        { name: "Hewlett Packard 610 Color Digital Copier / Printer", value: 8899.82 },
+        { name: "Sharp AL-1530CS Digital Copier", value: 6399.88 }
+      ],
+      "Envelopes": [
+        { name: "Staple envelope", value: 1686.79 },
+        { name: "Cameo Buff Policy Envelopes", value: 1555.75 },
+        { name: "Ames Color-File Diamond Border X-ray Mailers", value: 1360.48 },
+        { name: "Airmail Envelopes", value: 1359.67 },
+        { name: "Tyvek Side-Opening Peel & Seel Expanding Envelopes", value: 1266.72 },
+        { name: "Tyvek Interoffice Envelopes, 9 1/2\" x 12 1/2\", 100/Box", value: 939.09 }
+      ],
+      "Fasteners": [
+        { name: "Staples", value: 755.47 },
+        { name: "Vinyl Coated Wire Paper Clips in Organizer Box, 800/Box", value: 296.18 },
+        { name: "Advantus Plastic Paper Clips", value: 225.00 },
+        { name: "Alliance Super-Size Bands, Assorted Sizes", value: 197.61 },
+        { name: "OIC Colored Binder Clips, Assorted Sizes", value: 139.62 },
+        { name: "Advantus Push Pins, Aluminum Head", value: 139.44 }
+      ],
+      "Furnishings": [
+        { name: "Luxo Professional Fluorescent Magnifier Lamp with Clamp-Mount Base", value: 3861.05 },
+        { name: "Tenex Antistatic Computer Chair Mats", value: 3317.02 },
+        { name: "Electrix Architect's Clamp-On Swing Arm Lamp, Black", value: 2863.80 },
+        { name: "Electrix Halogen Magnifier Lamp", value: 2759.06 },
+        { name: "GE 48\" Fluorescent Tube, Cool White Energy Saver, 34 Watts, 30/Box", value: 2699.05 },
+        { name: "Tenex 46\" x 60\" Computer Anti-Static Chairmat, Rectangular Shaped", value: 2267.97 }
+      ],
+      "Labels": [
+        { name: "Dot Matrix Printer Tape Reel Labels, White, 5000/Box", value: 3322.87 },
+        { name: "Avery 4027 File Folder Labels for Dot Matrix Printers, 5000 Labels per Box, White", value: 1233.41 },
+        { name: "Avery 485", value: 639.03 },
+        { name: "Avery 477", value: 573.96 },
+        { name: "Alphabetical Labels for Top Tab Filing", value: 518.00 },
+        { name: "Round Specialty Laser Printer Labels", value: 421.01 }
+      ],
+      "Machines": [
+        { name: "Cisco TelePresence System EX90 Videoconferencing Unit", value: 22638.48 },
+        { name: "HP Designjet T520 Inkjet Large Format Printer - 24\" Color", value: 18374.89 },
+        { name: "Lexmark MX611dhe Monochrome Laser Printer", value: 16829.89 },
+        { name: "3D Systems Cube Printer, 2nd Generation, Magenta", value: 14299.89 },
+        { name: "Cubify CubeX 3D Printer Double Head Print", value: 11099.95 },
+        { name: "Bady BDG101FRU Card Printer", value: 9279.89 }
+      ],
+      "Paper": [
+        { name: "Xerox 1915", value: 2789.01 },
+        { name: "Easy-staple paper", value: 2504.18 },
+        { name: "Multicolor Computer Printout Paper", value: 1887.30 },
+        { name: "Xerox 189", value: 1782.45 },
+        { name: "Xerox 1941", value: 1740.51 },
+        { name: "Xerox 1908", value: 1712.99 }
+      ],
+      "Phones": [
+        { name: "Samsung Galaxy Mega 6.3", value: 13943.67 },
+        { name: "Apple iPhone 5", value: 12996.60 },
+        { name: "Wilson Electronics DB Pro Signal Booster", value: 8878.40 },
+        { name: "Mitel MiVoice 5330e IP Phone", value: 7699.73 },
+        { name: "Samsung Galaxy S III - 16GB - pebble blue (T-Mobile)", value: 7139.80 },
+        { name: "Cisco Unified IP Phone 7945G VoIP phone", value: 6751.61 }
+      ],
+      "Storage": [
+        { name: "Tennsco 6- and 18-Compartment Lockers", value: 10925.00 },
+        { name: "Tennsco Double-Tier Lockers", value: 9630.86 },
+        { name: "Tennsco Single-Tier Lockers", value: 9158.29 },
+        { name: "Hot File 7-Pocket, Floor Stand", value: 8138.24 },
+        { name: "Adjustable Depth Letter/Legal Cart", value: 7730.19 },
+        { name: "Tennsco 16-Compartment Lockers with Coat Rack", value: 7515.52 }
+      ],
+      "Supplies": [
+        { name: "High Speed Automatic Electric Letter Opener", value: 17030.31 },
+        { name: "Martin Yale Chadless Opener Electric Letter Opener", value: 16656.21 },
+        { name: "Compact Automatic Electric Letter Opener", value: 2982.75 },
+        { name: "Premier Automatic Letter Opener", value: 2836.36 },
+        { name: "Premier Electric Letter Opener", value: 2641.62 },
+        { name: "Acme Hot Forged Carbon Steel Scissors with Nickel-Plated Handles, 3 7/8\" Cut, 8\"L", value: 458.70 }
+      ],
+      "Tables": [
+        { name: "Bretford Rectangular Conference Table Tops", value: 12995.28 },
+        { name: "Chromcraft Bull-Nose Wood Oval Conference Tables & Bases", value: 9917.64 },
+        { name: "Bush Advantage Collection Racetrack Conference Table", value: 9544.72 },
+        { name: "Chromcraft Round Conference Tables", value: 8209.07 },
+        { name: "Hon 94000 Series Round Tables", value: 7404.49 },
+        { name: "Bretford CR4500 Series Slim Rectangular Table", value: 7242.77 }
+      ]
+    },
+
+    subCategoryStats: {
+      "Accessories": { category: "Technology", revenue: 167380.31, orders: 718, aov: 233.12, topProduct: "Plantronics CS510 - Over-the-Head monaural Wireless Headset System", topProductValue: 10822.36, shareOfTotal: 7.3 },
+      "Appliances": { category: "Office Supplies", revenue: 107532.14, orders: 451, aov: 238.43, topProduct: "Honeywell Enviracaire Portable HEPA Air Cleaner for 17' x 22' Room", topProductValue: 11304.44, shareOfTotal: 4.7 },
+      "Art": { category: "Office Supplies", revenue: 27118.80, orders: 731, aov: 37.10, topProduct: "Hunt PowerHouse Electric Pencil Sharpener, Blue", topProductValue: 1617.95, shareOfTotal: 1.2 },
+      "Binders": { category: "Office Supplies", revenue: 203412.68, orders: 1316, aov: 154.57, topProduct: "Fellowes PB500 Electric Punch Plastic Comb Binding Machine with Manual Bind", topProductValue: 27453.38, shareOfTotal: 8.9 },
+      "Bookcases": { category: "Furniture", revenue: 114879.98, orders: 224, aov: 512.86, topProduct: "Riverside Palais Royal Lawyers Bookcase, Royale Cherry Finish", topProductValue: 15610.97, shareOfTotal: 5.0 },
+      "Chairs": { category: "Furniture", revenue: 328167.73, orders: 576, aov: 569.74, topProduct: "HON 5400 Series Task Chairs for Big and Tall", topProductValue: 21870.57, shareOfTotal: 14.3 },
+      "Copiers": { category: "Technology", revenue: 149528.01, orders: 68, aov: 2198.94, topProduct: "Canon imageCLASS 2200 Advanced Copier", topProductValue: 61599.83, shareOfTotal: 6.5 },
+      "Envelopes": { category: "Office Supplies", revenue: 16476.38, orders: 249, aov: 66.17, topProduct: "Staple envelope", topProductValue: 1686.79, shareOfTotal: 0.7 },
+      "Fasteners": { category: "Office Supplies", revenue: 3024.25, orders: 215, aov: 14.07, topProduct: "Staples", topProductValue: 755.47, shareOfTotal: 0.1 },
+      "Furnishings": { category: "Furniture", revenue: 91705.12, orders: 877, aov: 104.57, topProduct: "Luxo Professional Fluorescent Magnifier Lamp with Clamp-Mount Base", topProductValue: 3861.05, shareOfTotal: 4.0 },
+      "Labels": { category: "Office Supplies", revenue: 12486.30, orders: 346, aov: 36.09, topProduct: "Dot Matrix Printer Tape Reel Labels, White, 5000/Box", topProductValue: 3322.87, shareOfTotal: 0.5 },
+      "Machines": { category: "Technology", revenue: 189238.60, orders: 112, aov: 1689.63, topProduct: "Cisco TelePresence System EX90 Videoconferencing Unit", topProductValue: 22638.48, shareOfTotal: 8.2 },
+      "Paper": { category: "Office Supplies", revenue: 78479.24, orders: 1191, aov: 65.89, topProduct: "Xerox 1915", topProductValue: 2789.01, shareOfTotal: 3.4 },
+      "Phones": { category: "Technology", revenue: 330007.10, orders: 814, aov: 405.41, topProduct: "Samsung Galaxy Mega 6.3", topProductValue: 13943.67, shareOfTotal: 14.4 },
+      "Storage": { category: "Office Supplies", revenue: 223843.59, orders: 777, aov: 288.09, topProduct: "Tennsco 6- and 18-Compartment Lockers", topProductValue: 10925.00, shareOfTotal: 9.7 },
+      "Supplies": { category: "Office Supplies", revenue: 46673.52, orders: 187, aov: 249.59, topProduct: "High Speed Automatic Electric Letter Opener", topProductValue: 17030.31, shareOfTotal: 2.0 },
+      "Tables": { category: "Furniture", revenue: 206965.53, orders: 307, aov: 674.15, topProduct: "Bretford Rectangular Conference Table Tops", topProductValue: 12995.28, shareOfTotal: 9.0 }
+    },
+
+    transactions: [
+      { orderId: "CA-2014-145317", date: "2014-03-18", product: "Cisco TelePresence System EX90 Videoconferencing Unit", category: "Technology", subCategory: "Machines", region: "South", segment: "Home Office", sales: 22638.48, quantity: 6 },
+      { orderId: "CA-2016-118689", date: "2016-10-02", product: "Canon imageCLASS 2200 Advanced Copier", category: "Technology", subCategory: "Copiers", region: "Central", segment: "Corporate", sales: 17499.95, quantity: 5 },
+      { orderId: "CA-2017-140151", date: "2017-03-23", product: "Canon imageCLASS 2200 Advanced Copier", category: "Technology", subCategory: "Copiers", region: "West", segment: "Consumer", sales: 13999.96, quantity: 4 },
+      { orderId: "CA-2017-127180", date: "2017-10-22", product: "Canon imageCLASS 2200 Advanced Copier", category: "Technology", subCategory: "Copiers", region: "East", segment: "Home Office", sales: 11199.97, quantity: 4 },
+      { orderId: "CA-2017-166709", date: "2017-11-17", product: "Canon imageCLASS 2200 Advanced Copier", category: "Technology", subCategory: "Copiers", region: "East", segment: "Consumer", sales: 10499.97, quantity: 3 },
+      { orderId: "CA-2016-117121", date: "2016-12-17", product: "GBC Ibimaster 500 Manual ProClick Binding System", category: "Office Supplies", subCategory: "Binders", region: "Central", segment: "Consumer", sales: 9892.74, quantity: 13 },
+      { orderId: "CA-2014-116904", date: "2014-09-23", product: "Ibico EPK-21 Electric Binding System", category: "Office Supplies", subCategory: "Binders", region: "Central", segment: "Consumer", sales: 9449.95, quantity: 5 },
+      { orderId: "US-2016-107440", date: "2016-04-16", product: "3D Systems Cube Printer, 2nd Generation, Magenta", category: "Technology", subCategory: "Machines", region: "East", segment: "Corporate", sales: 9099.93, quantity: 7 },
+      { orderId: "CA-2016-158841", date: "2016-02-02", product: "HP Designjet T520 Inkjet Large Format Printer - 24\" Color", category: "Technology", subCategory: "Machines", region: "South", segment: "Consumer", sales: 8749.95, quantity: 5 },
+      { orderId: "CA-2016-143714", date: "2016-05-23", product: "Canon imageCLASS 2200 Advanced Copier", category: "Technology", subCategory: "Copiers", region: "East", segment: "Consumer", sales: 8399.98, quantity: 4 },
+      { orderId: "CA-2014-143917", date: "2014-07-25", product: "High Speed Automatic Electric Letter Opener", category: "Office Supplies", subCategory: "Supplies", region: "West", segment: "Consumer", sales: 8187.65, quantity: 5 },
+      { orderId: "CA-2014-139892", date: "2014-09-08", product: "Lexmark MX611dhe Monochrome Laser Printer", category: "Technology", subCategory: "Machines", region: "Central", segment: "Consumer", sales: 8159.95, quantity: 8 },
+      { orderId: "US-2017-168116", date: "2017-11-04", product: "Cubify CubeX 3D Printer Triple Head Print", category: "Technology", subCategory: "Machines", region: "South", segment: "Corporate", sales: 7999.98, quantity: 4 },
+      { orderId: "CA-2014-145541", date: "2014-12-14", product: "HP Designjet T520 Inkjet Large Format Printer - 24\" Color", category: "Technology", subCategory: "Machines", region: "East", segment: "Consumer", sales: 6999.96, quantity: 4 },
+      { orderId: "CA-2015-145352", date: "2015-03-16", product: "Fellowes PB500 Electric Punch Plastic Comb Binding Machine with Manual Bind", category: "Office Supplies", subCategory: "Binders", region: "South", segment: "Consumer", sales: 6354.95, quantity: 5 },
+      { orderId: "CA-2017-138289", date: "2017-01-16", product: "GBC DocuBind P400 Electric Binding System", category: "Office Supplies", subCategory: "Binders", region: "Central", segment: "Consumer", sales: 5443.96, quantity: 4 },
+      { orderId: "US-2016-140158", date: "2016-10-04", product: "Hewlett Packard LaserJet 3310 Copier", category: "Technology", subCategory: "Copiers", region: "East", segment: "Home Office", sales: 5399.91, quantity: 9 },
+      { orderId: "CA-2017-143112", date: "2017-10-05", product: "3D Systems Cube Printer, 2nd Generation, Magenta", category: "Technology", subCategory: "Machines", region: "East", segment: "Corporate", sales: 5199.96, quantity: 4 },
+      { orderId: "CA-2017-135909", date: "2017-10-13", product: "Fellowes PB500 Electric Punch Plastic Comb Binding Machine with Manual Bind", category: "Office Supplies", subCategory: "Binders", region: "West", segment: "Corporate", sales: 5083.96, quantity: 5 },
+      { orderId: "CA-2016-136301", date: "2016-03-13", product: "High Speed Automatic Electric Letter Opener", category: "Office Supplies", subCategory: "Supplies", region: "West", segment: "Corporate", sales: 4912.59, quantity: 3 }
+    ]
+  };
+
+  // Blue / Indigo / Orange only — strictly no green anywhere in this palette
+  const DONUT_COLORS = ['#3b82f6', '#818cf8', '#fb923c'];
+
+  const categoryFilterEl = document.getElementById('categoryFilter');
+  const txSearchEl = document.getElementById('txSearch');
+  const chipRowEl = document.getElementById('chipRow');
+
+  // Populate filter dropdown with all sub-categories
+  dashboardData.subCategories.forEach(sc => {
+    const opt = document.createElement('option');
+    opt.value = sc;
+    opt.textContent = sc;
+    categoryFilterEl.appendChild(opt);
+  });
+
+  // Build tab row (All + top 6 sub-categories), synced with the select
+  function buildChips() {
+    const items = [{ label: 'All Categories', value: 'all' }].concat(
+      dashboardData.quickFilters.map(f => ({ label: f, value: f }))
+    );
+    chipRowEl.innerHTML = items.map(it => `
+      <button type="button" data-value="${it.value}" class="tab">${it.label}</button>
+    `).join('');
+  }
+  function syncChips(activeValue) {
+    chipRowEl.querySelectorAll('.tab').forEach(tab => {
+      tab.classList.toggle('active', tab.dataset.value === activeValue);
+    });
+  }
+  buildChips();
+  chipRowEl.addEventListener('click', e => {
+    const btn = e.target.closest('.tab');
+    if (!btn) return;
+    categoryFilterEl.value = btn.dataset.value;
+    renderAll();
+  });
+
+  function fmtCurrency(v) {
+    return '$' + v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  function fmtShort(v) {
+    if (v >= 1e6) return '$' + (v / 1e6).toFixed(2) + 'M';
+    if (v >= 1e3) return '$' + (v / 1e3).toFixed(1) + 'K';
+    return '$' + v.toFixed(0);
+  }
+  function isPlotlyReady() {
+    return typeof window.Plotly !== 'undefined';
+  }
+  function showChartFallback(elId, message) {
+    const el = document.getElementById(elId);
+    if (el) el.innerHTML = `<div class="chart-fallback">${message}</div>`;
+  }
+
+  // Animated count-up for KPI numbers
+  const animState = {};
+  function animateValue(elId, toValue, formatter, duration = 650) {
+    const el = document.getElementById(elId);
+    if (!el) return;
+    if (animState[elId]) cancelAnimationFrame(animState[elId]);
+    const start = performance.now();
+    function tick(now) {
+      const p = Math.min(1, (now - start) / duration);
+      const eased = 1 - Math.pow(1 - p, 3);
+      el.textContent = formatter(toValue * eased);
+      if (p < 1) animState[elId] = requestAnimationFrame(tick);
+    }
+    animState[elId] = requestAnimationFrame(tick);
+  }
+
+  function renderKpis(filter) {
+    // Top Category card always reflects the overall #1 category by revenue (Technology),
+    // regardless of the active filter — it's a fixed reference metric.
+    const topCat = [...dashboardData.categorySales].sort((a, b) => b.value - a.value)[0];
+    const topCatShare = ((topCat.value / dashboardData.kpis.totalRevenue) * 100).toFixed(1);
+    document.getElementById('kpiTopCat').textContent = topCat.name;
+    document.getElementById('kpiTopCatSub').innerHTML = topCatShare + '% of revenue <span class="delta-pill delta-orange">' + fmtShort(topCat.value) + '</span>';
+
+    if (filter === 'all') {
+      animateValue('kpiRevenue', dashboardData.kpis.totalRevenue, v => fmtShort(v));
+      document.getElementById('kpiRevenueSub').innerHTML = fmtCurrency(dashboardData.kpis.totalRevenue) + ' <span class="delta-pill delta-blue">Nov +52%</span>';
+      animateValue('kpiAov', dashboardData.kpis.avgOrderValue, v => '$' + v.toFixed(2));
+      document.getElementById('kpiAovSub').textContent = 'Across ' + dashboardData.kpis.totalOrders.toLocaleString() + ' orders';
+      animateValue('kpiOrders', dashboardData.kpis.totalOrders, v => Math.round(v).toLocaleString());
+      document.getElementById('kpiOrdersSub').textContent = 'All categories';
+    } else {
+      const s = dashboardData.subCategoryStats[filter];
+      animateValue('kpiRevenue', s.revenue, v => fmtShort(v));
+      document.getElementById('kpiRevenueSub').innerHTML = fmtCurrency(s.revenue) + ' <span class="delta-pill delta-indigo">' + s.shareOfTotal + '% of total</span>';
+      animateValue('kpiAov', s.aov, v => '$' + v.toFixed(2));
+      document.getElementById('kpiAovSub').textContent = 'Across ' + s.orders.toLocaleString() + ' orders';
+      animateValue('kpiOrders', s.orders, v => Math.round(v).toLocaleString());
+      document.getElementById('kpiOrdersSub').textContent = filter + ' only';
+    }
+  }
+
+  function renderBarChart(filter) {
+    if (!isPlotlyReady()) {
+      showChartFallback('barChart', 'Chart library failed to load from the CDN. Check your internet connection and reload the page.');
+      return;
+    }
+    const products = filter === 'all' ? dashboardData.productPerformanceOverall : dashboardData.productBySubCategory[filter];
+    const sorted = [...products].sort((a, b) => a.value - b.value);
+    const labels = sorted.map(p => p.name.length > 42 ? p.name.slice(0, 40) + '…' : p.name);
+    const values = sorted.map(p => p.value);
+    const fullNames = sorted.map(p => p.name);
+
+    const trace = {
+      type: 'bar',
+      orientation: 'h',
+      x: values,
+      y: labels,
+      marker: {
+        color: values,
+        colorscale: [[0, '#1e3a8a'], [0.5, '#3b82f6'], [1, '#93c5fd']],
+        line: { width: 0 }
+      },
+      customdata: fullNames,
+      hovertemplate: '<b>%{customdata}</b><br>Revenue: $%{x:,.2f}<extra></extra>',
+      hoverlabel: { bgcolor: '#0d1220', font: { color: '#fff' }, bordercolor: '#242c42' }
+    };
+
+    const layout = {
+      margin: { l: 10, r: 30, t: 10, b: 40 },
+      paper_bgcolor: 'rgba(0,0,0,0)',
+      plot_bgcolor: 'rgba(0,0,0,0)',
+      xaxis: { title: 'Revenue ($)', gridcolor: '#1c2338', tickprefix: '$', zeroline: false, color: '#8b96ab' },
+      yaxis: { automargin: true, color: '#c3cbdc' },
+      font: { family: 'Inter, system-ui, sans-serif', size: 11, color: '#8b96ab' },
+      bargap: 0.28
+    };
+
+    Plotly.react('barChart', [trace], layout, { responsive: true, displayModeBar: false });
+    document.getElementById('barSubtitle').textContent =
+      filter === 'all' ? 'Top products by revenue' : `Top products in "${filter}"`;
+  }
+
+  function renderDonutChart(filter) {
+    const legendEl = document.getElementById('donutLegend');
+    if (!isPlotlyReady()) {
+      showChartFallback('donutChart', 'Chart library failed to load from the CDN. Check your internet connection and reload the page.');
+      if (legendEl) legendEl.innerHTML = '';
+      return;
+    }
+    const labels = dashboardData.categorySales.map(c => c.name);
+    const values = dashboardData.categorySales.map(c => c.value);
+    const total = values.reduce((a, b) => a + b, 0);
+    let pullArr = labels.map(() => 0);
+    let highlightCat = null;
+
+    if (filter !== 'all') {
+      highlightCat = dashboardData.subCategoryStats[filter].category;
+      pullArr = labels.map(l => l === highlightCat ? 0.08 : 0);
+    }
+
+    const trace = {
+      type: 'pie',
+      hole: 0.62,
+      labels: labels,
+      values: values,
+      pull: pullArr,
+      marker: { colors: DONUT_COLORS, line: { color: '#141a2b', width: 3 } },
+      hovertemplate: '<b>%{label}</b><br>Revenue: $%{value:,.2f}<br>Share: %{percent}<extra></extra>',
+      hoverlabel: { bgcolor: '#0d1220', font: { color: '#fff' }, bordercolor: '#242c42' },
+      textinfo: 'none',
+      sort: false
+    };
+
+    const layout = {
+      margin: { l: 10, r: 10, t: 10, b: 10 },
+      paper_bgcolor: 'rgba(0,0,0,0)',
+      showlegend: false,
+      annotations: [
+        { text: fmtShort(total), showarrow: false, font: { size: 17, color: '#e7ecf5', family: 'Inter' }, x: 0.5, y: 0.56 },
+        { text: 'total revenue', showarrow: false, font: { size: 9.5, color: '#5b6478' }, x: 0.5, y: 0.44 }
+      ],
+      font: { family: 'Inter, system-ui, sans-serif', size: 11, color: '#8b96ab' }
+    };
+
+    Plotly.react('donutChart', [trace], layout, { responsive: true, displayModeBar: false });
+
+    if (legendEl) {
+      legendEl.innerHTML = dashboardData.categorySales.map((c, i) => {
+        const pct = ((c.value / total) * 100).toFixed(1);
+        const isHi = c.name === highlightCat;
+        return `
+          <div class="flex items-center justify-between ${isHi ? 'font-bold text-ink' : ''}">
+            <span class="inline-flex items-center gap-1.5"><span class="legend-dot" style="background:${DONUT_COLORS[i]}"></span>${c.name}</span>
+            <span>${pct}%</span>
+          </div>
+        `;
+      }).join('');
+    }
+  }
+
+  // Maps dashboardData.transactions[] directly into <tr> rows, ranked by sales
+  function renderTransactions(filter, searchTerm) {
+    const tbody = document.getElementById('txTableBody');
+    const emptyMsg = document.getElementById('txEmpty');
+    tbody.innerHTML = '';
+
+    let rows = dashboardData.transactions;
+    if (filter !== 'all') {
+      rows = rows.filter(r => r.subCategory === filter);
+    }
+    if (searchTerm) {
+      const q = searchTerm.toLowerCase();
+      rows = rows.filter(r =>
+        r.orderId.toLowerCase().includes(q) ||
+        r.product.toLowerCase().includes(q) ||
+        r.region.toLowerCase().includes(q) ||
+        r.segment.toLowerCase().includes(q) ||
+        r.subCategory.toLowerCase().includes(q) ||
+        r.category.toLowerCase().includes(q)
+      );
+    }
+
+    document.getElementById('headerTxCount').textContent = '9,993';
+
+    if (rows.length === 0) {
+      emptyMsg.classList.remove('hidden');
+      return;
+    }
+    emptyMsg.classList.add('hidden');
+
+    tbody.innerHTML = rows.map((r, i) => {
+      const rank = i + 1;
+      const rankHtml = rank <= 3
+        ? `<span class="rank-badge rank-${rank}">${rank}</span>`
+        : `<span class="text-slate-600 text-xs pl-1.5">${rank}</span>`;
+      return `
+      <tr>
+        <td class="px-5 py-3">${rankHtml}</td>
+        <td class="px-5 py-3 font-mono text-xs text-muted">${r.orderId}</td>
+        <td class="px-5 py-3 text-muted">${r.date}</td>
+        <td class="px-5 py-3 text-ink max-w-xs truncate" title="${r.product}">${r.product}</td>
+        <td class="px-5 py-3"><span class="tag-pill inline-block px-2 py-0.5 text-xs">${r.subCategory}</span></td>
+        <td class="px-5 py-3 text-muted">${r.region}</td>
+        <td class="px-5 py-3 text-muted">${r.segment}</td>
+        <td class="px-5 py-3 text-right text-muted">${r.quantity}</td>
+        <td class="px-5 py-3 text-right font-semibold text-ink font-mono">${fmtCurrency(r.sales)}</td>
+      </tr>
+    `;
+    }).join('');
+  }
+
+  function renderInsights(filter) {
+    const panel = document.getElementById('insightsPanel');
+    panel.classList.remove('fade-in');
+    void panel.offsetWidth;
+    panel.classList.add('fade-in');
+
+    const icons = {
+      concentration: '<path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/>',
+      trend: '<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>',
+      balance: '<circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 1 0 20"/>',
+      overview: '<rect x="3" y="3" width="18" height="18" rx="3"/><path d="M9 9h6v6H9z"/>',
+      star: '<polygon points="12 2 15 9 22 9.5 17 14.5 18.5 22 12 18 5.5 22 7 14.5 2 9.5 9 9"/>',
+      scale: '<path d="M12 3v18"/><path d="M5 8l-3 6a4 4 0 0 0 8 0z"/><path d="M19 8l-3 6a4 4 0 0 0 8 0z"/><path d="M5 8h14"/>'
+    };
+    function iconSvg(key, color) {
+      return `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${icons[key]}</svg>`;
+    }
+    function card(colorClass, hexColor, iconKey, title, body) {
+      return `
+        <div class="card card-hover rounded-xl p-5">
+          <div class="flex items-center gap-2.5 mb-2">
+            <div class="insight-icon ${colorClass}">${iconSvg(iconKey, hexColor)}</div>
+            <p class="font-bold text-ink text-sm">${title}</p>
+          </div>
+          <p class="text-[13px] text-muted leading-relaxed">${body}</p>
+        </div>
+      `;
+    }
+
+    if (filter === 'all') {
+      panel.innerHTML =
+        card('kpi-icon blue', '#3b82f6', 'concentration', 'Revenue Concentration',
+          'The top product, the Canon imageCLASS 2200 Advanced Copier ($61.6K), generates roughly <b class="text-ink">2.2x</b> the revenue of the #2 product, the Fellowes PB500 ($27.5K) — demand is concentrated around a single hero SKU.') +
+        card('kpi-icon indigo', '#818cf8', 'trend', 'Q4 Trend',
+          'Sales peaked sharply in November ($118.4K), nearly <b class="text-ink">50% above</b> both October ($77.8K) and December ($83.8K) — a seasonal spike worth planning inventory and staffing around.') +
+        card('kpi-icon orange', '#fb923c', 'balance', 'Category Balance',
+          'Revenue is well-diversified across categories (Technology 36%, Furniture 32%, Office Supplies 31%). No category dominates, lowering concentration risk.');
+    } else {
+      const s = dashboardData.subCategoryStats[filter];
+      const cmpWord = s.aov > dashboardData.kpis.avgOrderValue ? 'above' : 'below';
+      panel.innerHTML =
+        card('kpi-icon blue', '#3b82f6', 'overview', filter + ' Overview',
+          filter + ' sits within <b class="text-ink">' + s.category + '</b> and contributes <b class="text-ink">' + s.shareOfTotal + '%</b> of total revenue (' + fmtCurrency(s.revenue) + ') across ' + s.orders.toLocaleString() + ' orders.') +
+        card('kpi-icon orange', '#fb923c', 'star', 'Top Performer',
+          'The leading product is <b class="text-ink">' + s.topProduct + '</b>, generating ' + fmtCurrency(s.topProductValue) + ' on its own.') +
+        card('kpi-icon indigo', '#818cf8', 'scale', 'Order Economics',
+          'Average order value in ' + filter + ' is <b class="text-ink">$' + s.aov.toFixed(2) + '</b>, versus $' + dashboardData.kpis.avgOrderValue.toFixed(2) + ' company-wide — <b class="text-ink">' + cmpWord + '</b> the average.');
+    }
+  }
+
+  // Each section renders independently — a failure in one (e.g. Plotly not
+  // loading) will not block the KPI cards, table, or insights from rendering.
+  function renderAll() {
+    const filter = categoryFilterEl.value;
+    const searchTerm = txSearchEl.value.trim();
+    syncChips(filter);
+    const steps = [
+      () => renderKpis(filter),
+      () => renderBarChart(filter),
+      () => renderDonutChart(filter),
+      () => renderTransactions(filter, searchTerm),
+      () => renderInsights(filter)
+    ];
+    steps.forEach(step => {
+      try { step(); } catch (err) { console.error('Dashboard render step failed:', err); }
+    });
+  }
+
+  window.__plotlyReady = renderAll;
+  categoryFilterEl.addEventListener('change', renderAll);
+  txSearchEl.addEventListener('input', renderAll);
+
+  renderAll();
+</script>
+
+</body>
+</html>

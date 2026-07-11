@@ -8,6 +8,7 @@ This project takes a raw sales export (`sales.csv`), runs it through an automate
 
 ## Key Features
 
+- **AI-Powered Agentic Workflow** — The system was engineered using the Model Context Protocol (MCP) to securely bridge AI models with local datasets. It leverages advanced Prompt Engineering methodologies to orchestrate specialized agents, ensuring autonomous and secure execution across all ETL pipeline stages.
 - **Multi-Agent System** — The pipeline is broken into specialized agent roles (Extractor, Transformer, Analyzer) that handle ingestion, cleaning, and KPI computation as discrete stages.
 - **Data Cleaning** — Automated deduplication, encoding correction, date standardization, whitespace trimming, and rounding to produce a reliable source of truth from messy raw data.
 - **Interactive Web Dashboard** — A single-file HTML dashboard with live category filtering, hover-enabled charts, a searchable transactions table, and a strategic insights panel that updates dynamically based on the selected filter.
